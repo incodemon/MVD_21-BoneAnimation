@@ -88,6 +88,11 @@ private:
 	int ent_picking_ray_;
     
     //joints
+	std::vector<GLuint> joints_vaos_; //vao for each joint chain in scene
+	std::vector<GLuint> joints_chain_counts_; //number of indices in chains
+
+
+
 
     void createJointGeometry_(); //function to create VAOs for chains
     

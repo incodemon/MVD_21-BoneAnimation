@@ -101,7 +101,20 @@ void DebugSystem::update(float dt) {
 
 //Recursive function that creates joint index buffer which parent-child indices
 void createJointIndexBuffer(Joint* current, std::vector<GLuint>& indices) {
-    
+	GLuint current_joint_index = current->index_in_chain;
+	//only want to draw a line if this joint has a parent
+
+	if (current->parent) {
+		//draw line from parent to current
+		GLuint parent_index = current->parent->index_in_chain;
+		indices.push_back(parent_index);
+		indices.push_back(current_joint_index);
+	}
+
+	//go to children depth first
+	for (auto child : current->children) {
+		createJointIndexBuffer(child,indices);
+	}
 
 }
 
@@ -114,8 +127,43 @@ void createJointIndexBuffer(Joint* current, std::vector<GLuint>& indices) {
 //However we do have to make an index buffer to draw lines, based on index of
 //joints in tree
 void DebugSystem::createJointGeometry_() {
-    
-    
+	auto& jointchains = ECS.getAllComponents<JointChain>();
+	//for every chain,
+	for (auto& sm : jointchains) {
+		if (!sm.root) continue; //chek to make sure we actually have a root node
+
+		//count all joints in chain
+		GLuint current_chain_count = sm.num_joints;
+
+		//create array for all positions => VERTEX BUFFER
+		std::vector<float> positions(current_chain_count * 3, 0);
+
+		std::vector<GLuint> indices;
+		//now create index buffer
+		createJointIndexBuffer(sm.root, indices);
+		
+		GLuint new_vao;
+		glGenVertexArrays(1, &new_vao);
+		glBindVertexArray(new_vao);
+		//position
+		GLuint vbo;
+		glGenBuffers(1, &vbo);
+		glBindBuffer(GL_ARRAY_BUFFER,vbo);
+		glBufferData(GL_ARRAY_BUFFER, positions.size() * sizeof(float), &(positions[0]),GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,0,0);
+		//indices
+		GLuint ibo;
+		glGenBuffers(1, &ibo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER,indices.size() * sizeof(GLuint), &(indices[0]), GL_STATIC_DRAW);
+
+		//add this vao to our list of vaos
+		joints_vaos_.push_back(new_vao);
+
+	}
+	glBindBuffer(GL_ARRAY_BUFFER,0);
+	glBindVertexArray(0);
 }
 
 //Recursive function which traverses joint tree depth first
@@ -134,8 +182,15 @@ void DebugSystem::getJointWorldMatrices_(Joint* current,
                                          lm::mat4 current_model,
                                          std::vector<float>& all_matrices,
                                          int& joint_count) {
-    
+	lm::mat4 joint_global_model = current_model * current->matrix;
 
+	for (int i = 0; i < 16; i++) 
+		all_matrices[joint_count * 16 + i] = joint_global_model.m[i];
+	for (auto& c : current->children) {
+			joint_count++;
+			getJointWorldMatrices_(c,joint_global_model,all_matrices,joint_count);
+	}
+	
 }
 
 //function that draws joints to screen
@@ -150,7 +205,24 @@ void DebugSystem::drawJoints_() {
     //skinned_meshes size must be same as joints_vaos size
     for (size_t i = 0; i < jointchains.size(); i++) {
         // draw joint chain
-        
+		if (!jointchains[i].root) continue; //don't draw empty chain!
+
+		//hey shader, where's your model matrix uniform?
+		GLint u_model = glGetUniformLocation(joint_shader_->program, "u_model");
+		//empty float vector for all matrices
+		std::vector<float> all_matrices(jointchains[i].num_joints*16,0);
+
+		int joint_counter = 0;
+		getJointWorldMatrices_(jointchains[i].root,lm::mat4(),all_matrices,joint_counter);
+
+		//send all matrices to shader
+		glUniformMatrix4fv(u_model, jointchains[i].num_joints, GL_FALSE, &all_matrices[0]);
+		
+		joint_shader_->setUniform(U_VP, cam.view_projection);
+
+		glBindVertexArray(joints_vaos_[i]);
+
+		glDrawElements(GL_LINES, jointchains[i].num_joints * 2, GL_UNSIGNED_INT,0);
     }
 }
 

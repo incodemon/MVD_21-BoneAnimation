@@ -31,6 +31,8 @@
     </ClCompile>
     <ClCompile Include="..\src\GUISystem.cpp" />
     <ClCompile Include="..\src\GraphicsUtilities.cpp" />
+    <ClCompile Include="..\src\AnimationSystem.cpp" />
+    <ClCompile Include="..\src\tinyxml2.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\CollisionSystem.h" />
@@ -73,6 +75,8 @@
     <ClInclude Include="..\src\GUISystem.h" />
     <ClInclude Include="..\src\shaders_default.h" />
     <ClInclude Include="..\src\GraphicsUtilities.h" />
+    <ClInclude Include="..\src\AnimationSystem.h" />
+    <ClInclude Include="..\src\tinyxml2.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imGui">
